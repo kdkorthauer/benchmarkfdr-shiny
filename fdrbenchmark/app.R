@@ -9,43 +9,77 @@
 
 library(shiny)
 library(SummarizedBenchmark) # requires version 0.99.2 from fdrbenchmark branch on github
+ggplot2::theme_set(theme_bw())
 
 source("../src/plotters.R")
 
-casestudy <- "GWAS"
-datasets <- list.files(file.path("../results", casestudy))
-names(datasets) <- c(paste0(casestudy,", minor allele frequency covariate"),
-                     paste0(casestudy, ", sample size covariate"),
-                     paste0(casestudy, ", uninformative covariate"))
+datasets <- list.files(file.path("../results"), recursive = TRUE, full.names = TRUE)
+datasets <- datasets[!grepl("yeast|poly|promoters", datasets)]
+casestudy <- dirname(gsub("../results/", "", datasets))
+
+names(datasets) <- basename(datasets) #gsub(".rds", "", basename(datasets))
+
 datasets <- as.list(datasets)
+
+possmethods <- candycols$Method[-which(candycols$Method %in% c("adapt-gam", "ashs"))]
+
+# gwas 
+gwas <- datasets[casestudy == "GWAS"]
+names(gwas) <- ifelse(grepl("maf", gwas), "minor allele frequency", 
+                            ifelse(grepl("samplesize", gwas), "sample size",
+                                   "uninformative"))
+
+# Chipseq
+chipseq <- datasets[casestudy == "ChIPseq"]
+ds <- gsub("-csaw-[[:graph:]]+", "", chipseq)
+cov <- ifelse(grepl("cov", chipseq), "mean coverage",
+              ifelse(grepl("uninf", chipseq), "uninformative", "region width"))
+names(chipseq) <- paste0(basename(ds), " & ", cov)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
+    
     # Application title
     titlePanel("FDR benchmark results explorer"),
-
+    
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
         sidebarPanel(
-            selectInput("dataset",
-                        "Dataset to plot:",
-                        choices = datasets,
-                        selected = "bmi-maf-benchmark.rds")
+            selectInput("casestudy",
+                        "Case study to plot:",
+                        choices = unique(casestudy),
+                        selected = casestudy[[3]]),
+            conditionalPanel(
+                condition = "input.casestudy == 'GWAS'",
+                selectInput("dataset", "Covariate:",
+                            choices = gwas,
+                            selected = gwas[[1]])
+            ),
+            conditionalPanel(
+                condition = "input.casestudy == 'ChIPseq'",
+                selectInput("dataset", "Dataset & Covariate:",
+                            choices = chipseq,
+                            selected = chipseq[[1]])
+            ),
+            checkboxGroupInput("methods",
+                               "Methods",
+                               choices = possmethods,
+                               selected = possmethods)
         ),
-
+        
         # Show a plot of the generated distribution
         mainPanel(
-           plotOutput("rejPlot")
+            plotOutput("rejPlot")
         )
     )
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-
+    
     output$rejPlot <- renderPlot({
-        sb <- readRDS(file.path("../results", casestudy, input$dataset))
+        sb <- readRDS(file.path(input$dataset))
+        sb <- sb[,grepl(paste0(input$methods, collapse="|"), colnames(sb))]
         assayNames(sb) <- "qvalue"
         sb <- addDefaultMetrics(sb)
         rejections_scatter( sb, palette = candycols, supplementary = FALSE)

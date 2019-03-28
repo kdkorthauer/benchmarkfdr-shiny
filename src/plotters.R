@@ -117,3 +117,8 @@ candycols <- data.frame(Method = c("bonf", "bh", "qvalue", "ashs", "ashq",
                         stringsAsFactors = FALSE)
 
 
+addDefaultMetrics <- function(sb) {
+  sb <- addPerformanceMetric(sb, evalMetric = c("TPR", "FDR", "TNR", "FNR", "rejections"),
+                             assay = "qvalue")
+  return(sb)
+}
