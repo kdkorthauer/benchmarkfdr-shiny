@@ -87,8 +87,8 @@ polytab <- data.frame(file = sims[grepl("poly", sims)]) %>%
 ui <- fluidPage(
     # Application title
     headerPanel("FDR benchmark results explorer"),
-    tabsetPanel(id = "tabs",
-     tabPanel("Case Studies", value = "Case Studies",
+    tabsetPanel( #id = "tabs",
+     tabPanel("Case Studies", #value = "Case Studies",
     # Sidebar with selector for datasets/methods
     sidebarLayout(
         sidebarPanel(
@@ -98,37 +98,37 @@ ui <- fluidPage(
                         selected = unique(casestudy)[3]),
             conditionalPanel( 
                 condition = "input.casestudy == 'GWAS'",
-                selectInput("dataset", "Covariate:",
+                selectInput("GWAS", "Covariate:",
                             choices = gwas,
                             selected = gwas[1])
             ),
             conditionalPanel(
                 condition = "input.casestudy == 'ChIPseq'",
-                selectInput("dataset", "Dataset & Covariate:",
+                selectInput("ChIPseq", "Dataset & Covariate:",
                             choices = chipseq,
                             selected = chipseq[1])
             ),
             conditionalPanel(
                 condition = "input.casestudy == 'GSEA'",
-                selectInput("dataset", "Dataset & Covariate:",
+                selectInput("GSEA", "Dataset & Covariate:",
                             choices = gsea,
                             selected = gsea[1])
             ),
             conditionalPanel(
                 condition = "input.casestudy == 'microbiome'",
-                selectInput("dataset", "Dataset (Level) & Covariate:",
+                selectInput("microbiome", "Dataset (Level) & Covariate:",
                             choices = micro,
                             selected = micro[1])
             ),
             conditionalPanel(
                 condition = "input.casestudy == 'RNAseq'",
-                selectInput("dataset", "Dataset & Covariate:",
+                selectInput("RNAseq", "Dataset & Covariate:",
                             choices = rna,
                             selected = rna[1])
             ),
             conditionalPanel(
                 condition = "input.casestudy == 'scRNAseq'",
-                selectInput("dataset", "Dataset & Covariate (Method):",
+                selectInput("scRNAseq", "Dataset & Covariate (Method):",
                             choices = sc,
                             selected = sc[1])
             ),
@@ -147,7 +147,7 @@ ui <- fluidPage(
                     withSpinner(plotOutput("upsetPlot")))
             ))
       )),
-    tabPanel("Simulations", value = "Simulations",
+    tabPanel("Simulations", #value = "Simulations",
              sidebarLayout(
                  sidebarPanel(
              selectInput("simtype",
@@ -176,7 +176,7 @@ ui <- fluidPage(
                                                   pull(cov)),
                              selected = "strong")
              ),
-             checkboxGroupInput("methods",
+             checkboxGroupInput("methodsS",
                                 "Methods",
                                 choices = possmethods,
                                 selected = possmethods)
@@ -184,12 +184,12 @@ ui <- fluidPage(
              
              mainPanel(
                  tabsetPanel(
-                     tabPanel("Rejections Plot",
-                              withSpinner(plotOutput("rejPlotSim"))),
                      tabPanel("FDR Plot",
                               withSpinner(plotOutput("fdrPlot"))),
                      tabPanel("TPR Plot",
                               withSpinner(plotOutput("tprPlot"))),
+                     tabPanel("Rejections Plot",
+                              withSpinner(plotOutput("rejPlotSim"))),
                      tabPanel("UpSet Plot",
                               withSpinner(plotOutput("upsetPlotSim")))
                  ))
@@ -201,88 +201,105 @@ ui <- fluidPage(
 
 # Define server logic required to draw each type of plot
 server <- function(input, output) {
+
     # prepare selected sb obj for plotting
+    #tab <- reactive(input$tabs)
+    react <- reactiveValues()  
+    observe(react$methods <- input$methods)
+    observe(react$methodsS <- input$methodsS)
+    observe(react$GWAS <- input$GWAS)
+    observe(react$ChIPseq <- input$ChIPseq)
+    observe(react$GSEA <- input$GSEA)
+    observe(react$microbiome <- input$microbiome)
+    observe(react$RNAseq <- input$RNAseq)
+    observe(react$scRNAseq <- input$scRNAseq)
+    observe(react$casestudy <- input$casestudy)
+    
+    data <- reactive({
+       if (react$casestudy == "GWAS"){
+          return(react$GWAS)
+       }else if(react$casestudy == "GSEA"){
+          return(react$GSEA)
+       }else if(react$casestudy == "ChIPseq"){
+           return(react$ChIPseq)
+       }else if(react$casestudy == "microbiome"){
+           return(react$GSEA)
+       }else if(react$casestudy == "RNAseq"){
+           return(react$GSEA)
+       }else if(react$casestudy == "scRNAseq"){
+           return(react$GSEA)
+       }
+    })
+    
+    simtype <- reactive(input$simtype)
+    type <- reactive(input$type)
+    covar <- reactive(input$covariate)
+    size <- reactive(input$size)
+    
     inFile <- reactive(
-      if(input$tabs == "Case Studies" ){
-        return(input$dataset)
-      }else{
-        if(grepl("Poly", input$simtype)){ ## poly 
+        if(grepl("Poly", simtype())){ ## poly 
           fi <- polytab %>% 
-                     filter(samplesize == input$size,
-                            null == input$type)
+                     filter(samplesize == size(),
+                            null == type())
           if (nrow(fi) > 1){
-              fi <- filter(fi, cov == input$covariate)
+              fi <- filter(fi, cov == covar())
           }
           return(pull(fi, file))
         }else{ ## yeast
           return(NULL)    
         } 
-      }
     )
-     
-    inMethods <- reactive(input$methods)
     
     sb <- reactive({
-        sb <- readRDS(file.path(inFile()))
-        if (!is.list(sb)){
-          sb <- sb[,grepl(paste0(inMethods(), collapse="|"), colnames(sb))]
-          assayNames(sb) <- "qvalue"
-          sb <- addDefaultMetrics(sb)
-          return(sb)
-        }else{
-          return(sb)
-        }
+        obj <- readRDS(file.path(data()))
+        obj <- obj[,grepl(paste0(react$methods, collapse="|"), colnames(obj))]
+        assayNames(obj) <- "qvalue"
+        obj <- addDefaultMetrics(obj)
+        obj
+    })
+    
+    sbL <- reactive({
+        readRDS(file.path(inFile()))[1:5] # test smaller example (5 reps)
     })
     
     sim_res <- reactive({
-        if(input$tabs == "Simulations" ){
-          return(plotsim_standardize(sb(), alpha = seq(0.01, 0.10, 0.01)))
-        }
+        plotsim_standardize(sbL(), alpha = seq(0.01, 0.10, 0.01))
     })
     
+    # case study plotting
     output$rejPlot <- renderPlot({
-        if(input$tabs == "Case Studies" ){
           rejections_scatter(sb(), palette = candycols, 
                              supplementary = FALSE)
-        }
     })
     
     output$upsetPlot <- renderPlot({
-        if(input$tabs == "Case Studies" ){
           plotFDRMethodsOverlap(sb(), 
                               alpha=0.05, nsets=ncol(sb()),
                               order.by="freq", decreasing=TRUE,
                               supplementary=FALSE)
-        }
     })
     
-    output$rejPlotSim <- renderPlot({
-        if(input$tabs == "Simulations" ){
-          plotsim_average(sim_res(), filter_set = inMethods(), 
-                          met="rejections", errorBars=TRUE) 
-        }
-    })
-    
+
+    # simulation plotting
     output$fdrPlot <- renderPlot({
-        if(input$tabs == "Simulations" ){
-            plotsim_average(sim_res(), filter_set = inMethods(),
+            plotsim_average(sim_res(), filter_set = react$methodsS,
                             met="FDR", errorBars=TRUE) 
-        }
     })
     
     output$tprPlot <- renderPlot({
-        if(input$tabs == "Simulations" ){
-            plotsim_average(sim_res(), filter_set = inMethods(),
+            plotsim_average(sim_res(), filter_set = react$methodsS,
                             met="TPR", errorBars=TRUE) 
-        }
     })
 
+    output$rejPlotSim <- renderPlot({
+            plotsim_average(sim_res(), filter_set = react$methodsS, 
+                            met="rejections", errorBars=TRUE) 
+    })
+    
     output$upsetPlotSim <- renderPlot({
-        if(input$tabs == "Simulations" ){
-            aggupset(sb(), alpha = 0.05, supplementary = FALSE,
-                     filter_set = inMethods(),
+            aggupset(sbL(), alpha = 0.05, supplementary = FALSE,
+                     filter_set = react$methodsS,
                      return_list = FALSE) 
-        }
     })
     
 }
