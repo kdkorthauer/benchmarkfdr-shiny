@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+library(shinycssloaders)
 library(SummarizedBenchmark) # requires version 0.99.2 from fdrbenchmark branch on github
 ggplot2::theme_set(theme_bw())
 
@@ -36,30 +37,30 @@ cov <- ifelse(grepl("cov", chipseq), "mean coverage",
               ifelse(grepl("uninf", chipseq), "uninformative", "region width"))
 names(chipseq) <- paste0(basename(ds), " & ", cov)
 
-# Define UI for application that draws a histogram
+# Define UI for application that draws key summary plots
 ui <- fluidPage(
     
     # Application title
     titlePanel("FDR benchmark results explorer"),
     
-    # Sidebar with a slider input for number of bins 
+    # Sidebar with selector for datasets/methods
     sidebarLayout(
         sidebarPanel(
             selectInput("casestudy",
                         "Case study to plot:",
                         choices = unique(casestudy),
-                        selected = casestudy[[3]]),
+                        selected = unique(casestudy)[3]),
             conditionalPanel(
                 condition = "input.casestudy == 'GWAS'",
                 selectInput("dataset", "Covariate:",
                             choices = gwas,
-                            selected = gwas[[1]])
+                            selected = gwas[1])
             ),
             conditionalPanel(
                 condition = "input.casestudy == 'ChIPseq'",
                 selectInput("dataset", "Dataset & Covariate:",
                             choices = chipseq,
-                            selected = chipseq[[1]])
+                            selected = chipseq[1])
             ),
             checkboxGroupInput("methods",
                                "Methods",
@@ -69,12 +70,12 @@ ui <- fluidPage(
         
         # Show a plot of the generated distribution
         mainPanel(
-            plotOutput("rejPlot")
+            withSpinner(plotOutput("rejPlot"))
         )
     )
 )
 
-# Define server logic required to draw a histogram
+# Define server logic required to draw each type of plot
 server <- function(input, output) {
     
     output$rejPlot <- renderPlot({
@@ -82,7 +83,8 @@ server <- function(input, output) {
         sb <- sb[,grepl(paste0(input$methods, collapse="|"), colnames(sb))]
         assayNames(sb) <- "qvalue"
         sb <- addDefaultMetrics(sb)
-        rejections_scatter( sb, palette = candycols, supplementary = FALSE)
+        rejections_scatter(sb, palette = candycols, 
+                           supplementary = FALSE)
     })
 }
 
