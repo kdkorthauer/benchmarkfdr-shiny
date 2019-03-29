@@ -39,10 +39,10 @@ names(chipseq) <- paste0(basename(ds), " & ", cov)
 
 # Define UI for application that draws key summary plots
 ui <- fluidPage(
-    
     # Application title
     titlePanel("FDR benchmark results explorer"),
     
+  
     # Sidebar with selector for datasets/methods
     sidebarLayout(
         sidebarPanel(
@@ -70,21 +70,38 @@ ui <- fluidPage(
         
         # Show a plot of the generated distribution
         mainPanel(
-            withSpinner(plotOutput("rejPlot"))
-        )
+            tabsetPanel(
+                tabPanel("Rejections Plot",
+                    withSpinner(plotOutput("rejPlot"))),
+                tabPanel("UpSet Plot", 
+                    withSpinner(plotOutput("upsetPlot")))
+        ))
     )
 )
 
 # Define server logic required to draw each type of plot
 server <- function(input, output) {
-    
-    output$rejPlot <- renderPlot({
-        sb <- readRDS(file.path(input$dataset))
-        sb <- sb[,grepl(paste0(input$methods, collapse="|"), colnames(sb))]
+    # prepare selected sb obj for plotting
+    inFile <- reactive(input$dataset)
+    inMethods <- reactive(input$methods)
+    sb <- reactive({
+        sb <- readRDS(file.path(inFile()))
+        sb <- sb[,grepl(paste0(inMethods(), collapse="|"), colnames(sb))]
         assayNames(sb) <- "qvalue"
         sb <- addDefaultMetrics(sb)
-        rejections_scatter(sb, palette = candycols, 
+        sb
+    })
+    
+    output$rejPlot <- renderPlot({
+        rejections_scatter(sb(), palette = candycols, 
                            supplementary = FALSE)
+    })
+    
+    output$upsetPlot <- renderPlot({
+        plotFDRMethodsOverlap(sb(), 
+                              alpha=0.05, nsets=ncol(sb()),
+                              order.by="freq", decreasing=TRUE,
+                              supplementary=FALSE)
     })
 }
 
