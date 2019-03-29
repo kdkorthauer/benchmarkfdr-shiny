@@ -15,6 +15,7 @@ ggplot2::theme_set(theme_bw())
 source("../src/plotters.R")
 
 datasets <- list.files(file.path("../results"), recursive = TRUE, full.names = TRUE)
+sims <- datasets[grepl("yeast|poly", datasets)]
 datasets <- datasets[!grepl("yeast|poly|promoters", datasets)]
 casestudy <- dirname(gsub("../results/", "", datasets))
 
@@ -73,13 +74,21 @@ meth <-  ifelse(grepl("mast", sc), "MAST",
                        "Wilcox"))
 names(sc) <- paste0(basename(ds), " & ", cov, " (", meth, ")")
 
+# polyester
+polytab <- data.frame(file = sims[grepl("poly", sims)]) %>%
+    mutate(samplesize = ifelse(grepl("10", file), "10", "5"),
+           null = ifelse(grepl("null", file), "null", "de"),
+           cov = ifelse(grepl("uninf", file), "random", 
+                        ifelse(grepl("W", file), "weak", 
+                               ifelse(grepl("null", file), NA, "strong")))
+           )
 
 # Define UI for application that draws key summary plots
 ui <- fluidPage(
     # Application title
-    titlePanel("FDR benchmark results explorer"),
-    
-  
+    headerPanel("FDR benchmark results explorer"),
+    tabsetPanel(id = "tabs",
+     tabPanel("Case Studies", value = "Case Studies",
     # Sidebar with selector for datasets/methods
     sidebarLayout(
         sidebarPanel(
@@ -87,7 +96,7 @@ ui <- fluidPage(
                         "Case study to plot:",
                         choices = unique(casestudy),
                         selected = unique(casestudy)[3]),
-            conditionalPanel(
+            conditionalPanel( 
                 condition = "input.casestudy == 'GWAS'",
                 selectInput("dataset", "Covariate:",
                             choices = gwas,
@@ -136,34 +145,146 @@ ui <- fluidPage(
                     withSpinner(plotOutput("rejPlot"))),
                 tabPanel("UpSet Plot", 
                     withSpinner(plotOutput("upsetPlot")))
-        ))
+            ))
+      )),
+    tabPanel("Simulations", value = "Simulations",
+             sidebarLayout(
+                 sidebarPanel(
+             selectInput("simtype",
+                         "Simulation type:",
+                         choices = c("Yeast in silico experiments",
+                                     "Polyester simulations"),
+                         selected = "Polyester simulations"),
+             conditionalPanel( 
+                 condition = "input.simtype == 'Polyester simulations'",
+                 selectInput("size", "Sample size (per group):",
+                             choices = c("5", "10"),
+                             selected = "5")
+             ),
+             conditionalPanel( 
+                 condition = "input.simtype == 'Polyester simulations'",
+                 selectInput("type", "Comparison type:",
+                             choices = c("de", "null"),
+                             selected = "de")
+             ),
+             conditionalPanel( 
+                 condition = "input.simtype == 'Polyester simulations' &
+                              input.type == 'de'",
+                 selectInput("covariate", "Covariate:",
+                             choices = unique(polytab %>% 
+                                                  filter(null == "de") %>%
+                                                  pull(cov)),
+                             selected = "strong")
+             ),
+             checkboxGroupInput("methods",
+                                "Methods",
+                                choices = possmethods,
+                                selected = possmethods)
+             ),
+             
+             mainPanel(
+                 tabsetPanel(
+                     tabPanel("Rejections Plot",
+                              withSpinner(plotOutput("rejPlotSim"))),
+                     tabPanel("FDR Plot",
+                              withSpinner(plotOutput("fdrPlot"))),
+                     tabPanel("TPR Plot",
+                              withSpinner(plotOutput("tprPlot"))),
+                     tabPanel("UpSet Plot",
+                              withSpinner(plotOutput("upsetPlotSim")))
+                 ))
+             
+             )
     )
+)
 )
 
 # Define server logic required to draw each type of plot
 server <- function(input, output) {
     # prepare selected sb obj for plotting
-    inFile <- reactive(input$dataset)
+    inFile <- reactive(
+      if(input$tabs == "Case Studies" ){
+        return(input$dataset)
+      }else{
+        if(grepl("Poly", input$simtype)){ ## poly 
+          fi <- polytab %>% 
+                     filter(samplesize == input$size,
+                            null == input$type)
+          if (nrow(fi) > 1){
+              fi <- filter(fi, cov == input$covariate)
+          }
+          return(pull(fi, file))
+        }else{ ## yeast
+          return(NULL)    
+        } 
+      }
+    )
+     
     inMethods <- reactive(input$methods)
+    
     sb <- reactive({
         sb <- readRDS(file.path(inFile()))
-        sb <- sb[,grepl(paste0(inMethods(), collapse="|"), colnames(sb))]
-        assayNames(sb) <- "qvalue"
-        sb <- addDefaultMetrics(sb)
-        sb
+        if (!is.list(sb)){
+          sb <- sb[,grepl(paste0(inMethods(), collapse="|"), colnames(sb))]
+          assayNames(sb) <- "qvalue"
+          sb <- addDefaultMetrics(sb)
+          return(sb)
+        }else{
+          return(sb)
+        }
+    })
+    
+    sim_res <- reactive({
+        if(input$tabs == "Simulations" ){
+          return(plotsim_standardize(sb(), alpha = seq(0.01, 0.10, 0.01)))
+        }
     })
     
     output$rejPlot <- renderPlot({
-        rejections_scatter(sb(), palette = candycols, 
-                           supplementary = FALSE)
+        if(input$tabs == "Case Studies" ){
+          rejections_scatter(sb(), palette = candycols, 
+                             supplementary = FALSE)
+        }
     })
     
     output$upsetPlot <- renderPlot({
-        plotFDRMethodsOverlap(sb(), 
+        if(input$tabs == "Case Studies" ){
+          plotFDRMethodsOverlap(sb(), 
                               alpha=0.05, nsets=ncol(sb()),
                               order.by="freq", decreasing=TRUE,
                               supplementary=FALSE)
+        }
     })
+    
+    output$rejPlotSim <- renderPlot({
+        if(input$tabs == "Simulations" ){
+          plotsim_average(sim_res(), filter_set = inMethods(), 
+                          met="rejections", errorBars=TRUE) 
+        }
+    })
+    
+    output$fdrPlot <- renderPlot({
+        if(input$tabs == "Simulations" ){
+            plotsim_average(sim_res(), filter_set = inMethods(),
+                            met="FDR", errorBars=TRUE) 
+        }
+    })
+    
+    output$tprPlot <- renderPlot({
+        if(input$tabs == "Simulations" ){
+            plotsim_average(sim_res(), filter_set = inMethods(),
+                            met="TPR", errorBars=TRUE) 
+        }
+    })
+
+    output$upsetPlotSim <- renderPlot({
+        if(input$tabs == "Simulations" ){
+            aggupset(sb(), alpha = 0.05, supplementary = FALSE,
+                     filter_set = inMethods(),
+                     return_list = FALSE) 
+        }
+    })
+    
 }
 
 # Run the application 
