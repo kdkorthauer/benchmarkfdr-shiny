@@ -182,6 +182,7 @@ plotsim_standardize <- function(res, alpha = seq(0.01, 0.10, 0.01)) {
 #' @param diffplot logical indicating whether 'value' in tsb is a difference
 #'        between informative and uninformative covariates. (default = FALSE)
 #' @param grpVars vector of character names of additional columns of tsb to keep 
+#' @param type character indicating type of comparison; if not "de", then throw error
 #'
 #' @return
 #' a ggplot object.
@@ -192,7 +193,9 @@ plotsim_average <- function(tsb, met,
                             merge_ihw = TRUE,
                             clean_names = FALSE, errorBars=FALSE,
                             palette = candycols, facetMethodType = FALSE,
-                            diffplot = FALSE, grpVars = NULL){
+                            diffplot = FALSE, grpVars = NULL, type = "de"){
+  if (type != "de")
+    stop("Can't calculate TPR for null comparison.")
   if (length(met)>2)
     stop("Can only plot 2 metrics at a time")
   
@@ -574,3 +577,61 @@ addDefaultMetrics <- function(sb) {
                              assay = "qvalue")
   return(sb)
 }
+
+
+#' FDR vs TPR plot
+#' 
+#' @param sim_res output of plotsim_standardize
+#' @param filter_set optional vector of methods to subset on
+#' @param alpha specified alpha level
+#' @return ggplot2 object 
+#' @param type character indicating type of comparison; if not "de", then throw error
+#' 
+#' @author Keegan Korthauer
+rocPlot <- function(sim_res, filter_set = NULL, alpha = 0.05, type = "de"){
+  if (type != "de")
+    stop("Can't calculate TPR for null comparison.")
+  sim_res_sum <- sim_res %>% 
+    group_by(blabel, performanceMetric, alpha, param.alpha, key) %>%
+    summarize(n = sum(!is.na(value)),
+              se = sd(value, na.rm = TRUE) / sqrt(n),
+              value = mean(value, na.rm = TRUE)) %>%
+    filter(round(alpha,2) %in% c(0.01, 0.05, 0.1),
+           performanceMetric %in% c("FDR", "TPR"),
+           blabel %in% filter_set,
+           is.na(param.alpha) | (param.alpha == alpha)) 
+  tsba_m <- NULL 
+  met = c("FDR", "TPR")
+  for (m in seq_along(met)){
+    tmp <- sim_res_sum %>% 
+      filter(performanceMetric == met[m]) %>%
+      dplyr::mutate(Method = gsub("-df03", "", blabel)) 
+    if (m > 1){
+      tsba_m <- left_join(tsba_m, tmp, 
+                          by = c("Method", "alpha", "n", 
+                                 "param.alpha", "blabel"))
+    }else{
+      tsba_m <- tmp
+    }
+  }
+  sim_res_sum <- tsba_m
+  sim_res_sum <- sim_res_sum %>%
+    mutate(control = value.x < alpha) 
+  # add color palette
+  sim_res_sum$Method[grepl("^ihw-", sim_res_sum$Method)] <- "ihw"
+  sim_res_sum <- dplyr::left_join(sim_res_sum, candycols, by="Method") 
+  
+  plt <- plotsim_average(sim_res, met=c("FDR", "TPR"), filter_set = filter_set) +
+    geom_point(data=sim_res_sum, aes(x = value.x, y = value.y, 
+                                     shape = control), size = 3.5) +
+    geom_point(data=sim_res_sum %>% filter(!control), aes(x = value.x, y = value.y), 
+               shape = 19, size = 2.5, color = "white") +
+    geom_point(data=sim_res_sum %>% filter(!control), aes(x = value.x, y = value.y), 
+               shape = 1, size = 3.5) +
+    scale_shape_manual(values = c(1, 19)) +
+    scale_x_continuous(breaks=seq(0, 1, by=0.02)) +
+    labs(shape = "FDR control") +
+    ggtitle("")
+  return(plt)
+}
+

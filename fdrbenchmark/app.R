@@ -184,6 +184,8 @@ ui <- fluidPage(
              
              mainPanel(
                  tabsetPanel(
+                     tabPanel("FDR vs TPR Plot",
+                              withSpinner(plotOutput("rocPlot"))),
                      tabPanel("FDR Plot",
                               withSpinner(plotOutput("fdrPlot"))),
                      tabPanel("TPR Plot",
@@ -283,12 +285,12 @@ server <- function(input, output) {
     # simulation plotting
     output$fdrPlot <- renderPlot({
             plotsim_average(sim_res(), filter_set = react$methodsS,
-                            met="FDR", errorBars=TRUE) 
+                            met="FDR", errorBars=TRUE, type = type()) 
     })
     
     output$tprPlot <- renderPlot({
             plotsim_average(sim_res(), filter_set = react$methodsS,
-                            met="TPR", errorBars=TRUE) 
+                            met="TPR", errorBars=TRUE, type = type()) 
     })
 
     output$rejPlotSim <- renderPlot({
@@ -302,6 +304,9 @@ server <- function(input, output) {
                      return_list = FALSE) 
     })
     
+    output$rocPlot <- renderPlot({
+            rocPlot(sim_res(), filter_set = react$methodS, type = type())
+    })
 }
 
 # Run the application 
