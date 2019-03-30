@@ -305,7 +305,8 @@ server <- function(input, output) {
     })
     
     output$rocPlot <- renderPlot({
-            rocPlot(sim_res(), filter_set = react$methodS, type = type())
+      plotsim_average(sim_res(), filter_set = react$methodsS,
+                      met=c("FDR", "TPR"), type = type(), rocstyle = TRUE)
     })
 }
 
