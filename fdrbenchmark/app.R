@@ -258,11 +258,11 @@ server <- function(input, output) {
        }else if(react$casestudy == "ChIPseq"){
            return(react$ChIPseq)
        }else if(react$casestudy == "microbiome"){
-           return(react$GSEA)
+           return(react$microbiome)
        }else if(react$casestudy == "RNAseq"){
-           return(react$GSEA)
+           return(react$RNAseq)
        }else if(react$casestudy == "scRNAseq"){
-           return(react$GSEA)
+           return(react$scRNAseq)
        }
     })
     
