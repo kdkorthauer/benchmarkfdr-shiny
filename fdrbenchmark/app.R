@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+library(shinythemes)
 library(shinycssloaders)
 library(SummarizedBenchmark) # requires version 0.99.2 from fdrbenchmark branch on github
 ggplot2::theme_set(theme_bw())
@@ -99,7 +100,7 @@ yeasttab <- data.frame(file = sims[grepl("yeast", sims)]) %>%
   )
 
 # Define UI for application that draws key summary plots
-ui <- fluidPage(
+ui <- fluidPage(theme = shinytheme("cerulean"),
     # Application title
     headerPanel("FDR benchmark results explorer"),
     tabsetPanel( #id = "tabs",
@@ -213,10 +214,13 @@ ui <- fluidPage(
              mainPanel(
                  tabsetPanel(
                      tabPanel("FDR vs TPR Plot",
+                              h5(textOutput("errMess1")),
                               withSpinner(plotOutput("rocPlot"))),
                      tabPanel("FDR Plot",
+                              h5(textOutput("errMess2")),
                               withSpinner(plotOutput("fdrPlot"))),
                      tabPanel("TPR Plot",
+                              h5(textOutput("errMess3")),
                               withSpinner(plotOutput("tprPlot"))),
                      tabPanel("Rejections Plot",
                               withSpinner(plotOutput("rejPlotSim"))),
@@ -346,7 +350,24 @@ server <- function(input, output) {
       plotsim_average(sim_res(), filter_set = react$methodsS,
                       met=c("FDR", "TPR"), type = type(), rocstyle = TRUE)
     })
+    
+    output$errMess1 <- renderText({
+      if(type() == "null")
+        paste0("Can't calculate TPR for null comparison.")
+    })
+    
+    output$errMess2 <- renderText({
+      if(type() == "null")
+        paste0("Can't calculate TPR for null comparison.")
+    })
+        
+    output$errMess3 <- renderText({
+      if(type() == "null")
+        paste0("Can't calculate TPR for null comparison.")
+    })
 }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
+

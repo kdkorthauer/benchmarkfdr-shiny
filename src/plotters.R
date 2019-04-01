@@ -197,7 +197,7 @@ plotsim_average <- function(tsb, met,
                             diffplot = FALSE, grpVars = NULL, type = "de",
                             rocstyle = FALSE){
   if (type != "de"){
-    message("Can't calculate TPR for null comparison.")
+    #Can't calculate TPR for null comparison
     return(NULL)
   }
   if (length(met)>2)
