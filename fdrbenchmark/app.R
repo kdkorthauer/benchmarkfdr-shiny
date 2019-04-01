@@ -148,10 +148,24 @@ ui <- navbarPage(theme = shinytheme("flatly"),
                             choices = sc,
                             selected = sc[1])
             ),
-            checkboxGroupInput("methods",
+            conditionalPanel(
+              condition = "input.casestudy == 'GWAS' |
+                           input.casestudy == 'RNAseq'",
+              checkboxGroupInput("methods1",
                                "Methods",
                                choices = possmethods,
                                selected = possmethods[possmethods != "bonf"])
+            ),
+            conditionalPanel(
+              condition = "input.casestudy == 'microbiome' |
+                           input.casestudy == 'GSEA' |
+                           input.casestudy == 'ChIPseq' |
+                           input.casestudy == 'scRNAseq'",
+              checkboxGroupInput("methods2",
+                               "Methods",
+                               choices = possmethods[!(possmethods %in% c("fdrreg-e", "fdrreg-t", "ashq"))],
+                               selected = possmethods[!(possmethods %in% c("bonf", "fdrreg-e", "fdrreg-t", "ashq"))])
+            )
         ),
         
         # Show a plot of the generated distribution
@@ -160,6 +174,7 @@ ui <- navbarPage(theme = shinytheme("flatly"),
                 tabPanel("Rejections Plot",
                     withSpinner(plotOutput("rejPlot"))),
                 tabPanel("UpSet Plot", 
+                    h5(textOutput("errMess5")),
                     withSpinner(plotOutput("upsetPlot")))
             ))
       )),
@@ -239,7 +254,8 @@ server <- function(input, output) {
 
     # prepare selected sb obj for plotting
     react <- reactiveValues()  
-    observe(react$methods <- input$methods)
+    observe(react$methods1 <- input$methods1)
+    observe(react$methods2 <- input$methods2)
     observe(react$methodsS <- input$methodsS)
     observe(react$GWAS <- input$GWAS)
     observe(react$ChIPseq <- input$ChIPseq)
@@ -266,7 +282,14 @@ server <- function(input, output) {
        }
     })
     
-    
+    methods <- reactive({
+       if (react$casestudy %in% c("GWAS", "RNAseq")){
+          return(react$methods1)
+       }else{
+          return(react$methods2)
+       }
+    })
+  
     type <- reactive(input$type)
     covar <- reactive(input$covariate)
     size <- reactive(input$size)
@@ -298,7 +321,7 @@ server <- function(input, output) {
     
     sb <- reactive({
         obj <- readRDS(file.path(data()))
-        obj <- obj[,grepl(paste0(react$methods, collapse="|"), colnames(obj))]
+        obj <- obj[,grepl(paste0(methods(), collapse="|"), colnames(obj))]
         assayNames(obj) <- "qvalue"
         obj <- addDefaultMetrics(obj)
         obj
@@ -372,6 +395,14 @@ server <- function(input, output) {
         hits_tabs <- lapply(sbL(), sb2hits, a = 0.05, s = FALSE)
         # check if enough methods with rejections to compute overlaps
         if(any(sapply(lapply(hits_tabs, colSums), function(x) sum(x > 0) <= 1))){
+          paste0("Not enough methods with rejections to compute overlaps")
+        }
+    })
+    
+    output$errMess5 <- renderText({
+        hits_tabs <- sb2hits(sb(), a = 0.05, s = FALSE)
+        # check if enough methods with rejections to compute overlaps
+        if(sum(colSums(hits_tabs) > 0, na.rm = TRUE) <= 1){
           paste0("Not enough methods with rejections to compute overlaps")
         }
     })

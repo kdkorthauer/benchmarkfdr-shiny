@@ -74,6 +74,12 @@ rejections_scatter <- function( sb, as_fraction=FALSE, supplementary=TRUE,
 plotFDRMethodsOverlap <- function( object, supplementary=TRUE, alpha=0.1, ... ){
   stopifnot( is( object, "SummarizedBenchmark" ) )
   stopifnot( any( colData(object)$param.alpha == alpha, na.rm=TRUE) )
+  hits_tabs <- sb2hits(object, a = alpha, s = supplementary)
+  # check if enough methods with rejections to compute overlaps
+  if(sum(colSums(hits_tabs) > 0, na.rm = TRUE) <= 1){
+    #message("Not enough methods reject anything")
+    return(NULL) 
+  }
   object <- object[,!( grepl("^ihw", as.character( colData( object )$blabel ) ) & colData( object )$param.alpha != alpha )]
   colData(object)$blabel <- gsub("(ihw)-.*", "\\1", colData( object )$blabel)
   qvals <- assays( object )[["qvalue"]]
