@@ -11,7 +11,7 @@ The tool provides evaluation plots for case studies:
 
 <br>
 <center>
-<img src="img/screenshot1.png" alt="Screenshot 1" width="700" align="middle"/>
+<img src="img/screenshot2.png" alt="Screenshot 2" width="700" align="middle"/>
 </center>
 <br><br>
 
@@ -25,7 +25,7 @@ For the yeast _in silico_ resampling experiments and Polyester simulation studie
 
 <br>
 <center>
-<img src="img/screenshot2.png" alt="Screenshot 2" width="700" align="middle"/>
+<img src="img/screenshot1.png" alt="Screenshot 1" width="700" align="middle"/>
 </center>
 <br><br>
 
