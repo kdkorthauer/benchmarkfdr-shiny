@@ -196,8 +196,10 @@ plotsim_average <- function(tsb, met,
                             palette = candycols, facetMethodType = FALSE,
                             diffplot = FALSE, grpVars = NULL, type = "de",
                             rocstyle = FALSE){
-  if (type != "de")
-    stop("Can't calculate TPR for null comparison.")
+  if (type != "de"){
+    message("Can't calculate TPR for null comparison.")
+    return(NULL)
+  }
   if (length(met)>2)
     stop("Can only plot 2 metrics at a time")
   
@@ -426,6 +428,8 @@ plotsim_average <- function(tsb, met,
 #'        wants to experiment with upset plot styles. (default = FALSE)
 #' @param nintersects scalar value representing number of sets to look at.  
 #'        Default is 40 (same as default in UpSetR package).
+#' @param filter_set optional character vector of methods to restrict plotting to.
+#'        Should be in "clean" format (IHW/BL simplified).
 #' 
 #' @return
 #' an upset plot if `return_list = FALSE` (default), else a list of frequencies that
@@ -438,12 +442,16 @@ plotsim_average <- function(tsb, met,
 #' 15 to 20 seconds for 20 replications, and 40 to 45 seconds with 100 replications.  
 #' 
 #' @import dplyr magrittr
-#' @author Patrick Kimes
+#' @author Patrick Kimes and Keegan Korthauer
 aggupset <- function(res, alpha, supplementary = FALSE, return_list = FALSE,
-                     nintersects = 40) { 
+                     nintersects = 40, filter_set = NULL) { 
   
   ## find significant hits at alpha cutoff for all replicates
   hits_tabs <- lapply(res, sb2hits, a = alpha, s = supplementary)
+  
+  if(!is.null(filter_set))
+    hits_tabs <- suppressWarnings(lapply(hits_tabs, 
+                                         function(x) select(x, c(truth, one_of(filter_set)))))
   
   ## replace NAs with 0s (not called significant)
   fails <- lapply(hits_tabs, sapply, function(x) { all(is.na(x)) })
@@ -532,7 +540,7 @@ aggupset <- function(res, alpha, supplementary = FALSE, return_list = FALSE,
 #' data.frame of 0/1s; rows are test, columns are methods.
 #'
 #' @import dplyr magrittr
-#' @author Patrick Kimes
+#' @author Patrick Kimes (modified by Keegan Korthauer)
 sb2hits <- function(x, a, s) {
   ## make quick table of significant tests w/ groundTruth
   ht <- as_tibble(cbind((assay(x, "qvalue") < a) + 0,
@@ -542,8 +550,7 @@ sb2hits <- function(x, a, s) {
   if (ihw_keep %in% names(ht)) {
     ## note - using mutate instead of rename so next 'select' call to drop
     ## extra "ihw-*" columns doesn't throw an error if correct alpha was only alpha
-    ht <- dplyr::mutate(ht, ihw = paste0("`", ihw_keep, "`"))
-  }
+    ht <- dplyr::mutate(ht, ihw = get(ihw_keep))   }
   ht <- dplyr::select(ht, -dplyr::contains("ihw-"))
   ## if not plotting for supplementary materials, remove BL w/ multiple DoF 
   if (!s) {

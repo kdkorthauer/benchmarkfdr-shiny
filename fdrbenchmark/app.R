@@ -14,7 +14,11 @@ ggplot2::theme_set(theme_bw())
 
 source("../src/plotters.R")
 
+# will change the following line once ExperimentHub data package is available
+## get list of data objects
 datasets <- list.files(file.path("../results"), recursive = TRUE, full.names = TRUE)
+
+# parse object names to extract information
 sims <- datasets[grepl("yeast|poly", datasets)]
 datasets <- datasets[!grepl("yeast|poly|promoters", datasets)]
 casestudy <- dirname(gsub("../results/", "", datasets))
@@ -82,6 +86,17 @@ polytab <- data.frame(file = sims[grepl("poly", sims)]) %>%
                         ifelse(grepl("W", file), "weak", 
                                ifelse(grepl("null", file), NA, "strong")))
            )
+ 
+# yeast
+yeasttab <- data.frame(file = sims[grepl("yeast", sims)]) %>%
+  mutate(samplesize = ifelse(grepl("10", file), "10", "5"),
+         null = ifelse(grepl("null", file), "null", "de"),
+         cov = ifelse(grepl("uninf", file), "random", 
+                      ifelse(grepl("W", file), "weak", 
+                             ifelse(grepl("null", file), NA, "strong"))),
+         modality = ifelse(grepl("II", file), "bimodal", "unimodal"),
+         pi0 = ifelse(grepl("H", file), "high", "low")
+  )
 
 # Define UI for application that draws key summary plots
 ui <- fluidPage(
@@ -155,26 +170,39 @@ ui <- fluidPage(
                          choices = c("Yeast in silico experiments",
                                      "Polyester simulations"),
                          selected = "Polyester simulations"),
-             conditionalPanel( 
-                 condition = "input.simtype == 'Polyester simulations'",
-                 selectInput("size", "Sample size (per group):",
+
+            selectInput("size", "Sample size (per group):",
                              choices = c("5", "10"),
-                             selected = "5")
-             ),
-             conditionalPanel( 
-                 condition = "input.simtype == 'Polyester simulations'",
-                 selectInput("type", "Comparison type:",
+                             selected = "5"),
+            selectInput("type", "Comparison type:",
                              choices = c("de", "null"),
-                             selected = "de")
-             ),
+                             selected = "de"),
              conditionalPanel( 
-                 condition = "input.simtype == 'Polyester simulations' &
-                              input.type == 'de'",
+                 condition = "input.type == 'de'",
                  selectInput("covariate", "Covariate:",
                              choices = unique(polytab %>% 
                                                   filter(null == "de") %>%
                                                   pull(cov)),
                              selected = "strong")
+             ),
+             # yeast
+             conditionalPanel( 
+                 condition = "input.simtype == 'Yeast in silico experiments' &
+                              input.type == 'de'",
+                 selectInput("modality", "Modality of alternative:",
+                             choices = unique(yeasttab %>% 
+                                                  filter(null == "de") %>%
+                                                  pull(modality)),
+                             selected = "unimodal")
+             ),
+             conditionalPanel( 
+                 condition = "input.simtype == 'Yeast in silico experiments' &
+                              input.type == 'de'",
+                 selectInput("pi0", "Proportion of null:",
+                             choices = unique(yeasttab %>% 
+                                                  filter(null == "de") %>%
+                                                  pull(pi0)),
+                             selected = "low")
              ),
              checkboxGroupInput("methodsS",
                                 "Methods",
@@ -205,7 +233,6 @@ ui <- fluidPage(
 server <- function(input, output) {
 
     # prepare selected sb obj for plotting
-    #tab <- reactive(input$tabs)
     react <- reactiveValues()  
     observe(react$methods <- input$methods)
     observe(react$methodsS <- input$methodsS)
@@ -237,6 +264,8 @@ server <- function(input, output) {
     type <- reactive(input$type)
     covar <- reactive(input$covariate)
     size <- reactive(input$size)
+    modal <- reactive(input$modality)
+    pi0 <- reactive(input$pi0)
     
     inFile <- reactive(
         if(grepl("Poly", simtype())){ ## poly 
@@ -248,7 +277,16 @@ server <- function(input, output) {
           }
           return(pull(fi, file))
         }else{ ## yeast
-          return(NULL)    
+          fi <- yeasttab %>% 
+                     filter(samplesize == size(),
+                            null == type())
+          if (nrow(fi) > 1){
+              fi <- fi %>% 
+                filter(cov == covar(),
+                       modality == modal(),
+                       pi0 == pi0())
+          }
+          return(pull(fi, file))
         } 
     )
     
