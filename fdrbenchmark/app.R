@@ -100,10 +100,10 @@ yeasttab <- data.frame(file = sims[grepl("yeast", sims)]) %>%
   )
 
 # Define UI for application that draws key summary plots
-ui <- fluidPage(theme = shinytheme("cerulean"),
+ui <- navbarPage(theme = shinytheme("flatly"),
     # Application title
-    headerPanel("FDR benchmark results explorer"),
-    tabsetPanel( #id = "tabs",
+    title = "FDR benchmark results explorer",
+    #tabsetPanel( #id = "tabs",
      tabPanel("Case Studies", #value = "Case Studies",
     # Sidebar with selector for datasets/methods
     sidebarLayout(
@@ -151,7 +151,7 @@ ui <- fluidPage(theme = shinytheme("cerulean"),
             checkboxGroupInput("methods",
                                "Methods",
                                choices = possmethods,
-                               selected = possmethods)
+                               selected = possmethods[possmethods != "bonf"])
         ),
         
         # Show a plot of the generated distribution
@@ -208,7 +208,7 @@ ui <- fluidPage(theme = shinytheme("cerulean"),
              checkboxGroupInput("methodsS",
                                 "Methods",
                                 choices = possmethods,
-                                selected = possmethods)
+                                selected = possmethods[possmethods != "bonf"])
              ),
              
              mainPanel(
@@ -225,12 +225,13 @@ ui <- fluidPage(theme = shinytheme("cerulean"),
                      tabPanel("Rejections Plot",
                               withSpinner(plotOutput("rejPlotSim"))),
                      tabPanel("UpSet Plot",
+                              h5(textOutput("errMess4")),
                               withSpinner(plotOutput("upsetPlotSim")))
                  ))
              
              )
     )
-)
+#)
 )
 
 # Define server logic required to draw each type of plot
@@ -247,6 +248,7 @@ server <- function(input, output) {
     observe(react$RNAseq <- input$RNAseq)
     observe(react$scRNAseq <- input$scRNAseq)
     observe(react$casestudy <- input$casestudy)
+    observe(react$simtype <- input$simtype)
     
     data <- reactive({
        if (react$casestudy == "GWAS"){
@@ -264,7 +266,7 @@ server <- function(input, output) {
        }
     })
     
-    simtype <- reactive(input$simtype)
+    
     type <- reactive(input$type)
     covar <- reactive(input$covariate)
     size <- reactive(input$size)
@@ -272,7 +274,7 @@ server <- function(input, output) {
     pi0 <- reactive(input$pi0)
     
     inFile <- reactive(
-        if(grepl("Poly", simtype())){ ## poly 
+        if(grepl("Poly", react$simtype)){ ## poly 
           fi <- polytab %>% 
                      filter(samplesize == size(),
                             null == type())
@@ -353,17 +355,25 @@ server <- function(input, output) {
     
     output$errMess1 <- renderText({
       if(type() == "null")
-        paste0("Can't calculate TPR for null comparison.")
+        paste0("Can't calculate TPR/FDR for null comparison.")
     })
     
     output$errMess2 <- renderText({
       if(type() == "null")
-        paste0("Can't calculate TPR for null comparison.")
+        paste0("Can't calculate FDR for null comparison.")
     })
         
     output$errMess3 <- renderText({
       if(type() == "null")
         paste0("Can't calculate TPR for null comparison.")
+    })
+    
+    output$errMess4 <- renderText({
+        hits_tabs <- lapply(sbL(), sb2hits, a = 0.05, s = FALSE)
+        # check if enough methods with rejections to compute overlaps
+        if(any(sapply(lapply(hits_tabs, colSums), function(x) sum(x > 0) <= 1))){
+          paste0("Not enough methods with rejections to compute overlaps")
+        }
     })
 }
 

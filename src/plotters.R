@@ -449,6 +449,12 @@ aggupset <- function(res, alpha, supplementary = FALSE, return_list = FALSE,
   ## find significant hits at alpha cutoff for all replicates
   hits_tabs <- lapply(res, sb2hits, a = alpha, s = supplementary)
   
+  # check if enough methods with rejections to compute overlaps
+  if(any(sapply(lapply(hits_tabs, colSums), function(x) sum(x > 0) <= 1))){
+    #message("Not enough methods reject anything")
+    return(NULL) 
+  }
+  
   if(!is.null(filter_set))
     hits_tabs <- suppressWarnings(lapply(hits_tabs, 
                                          function(x) select(x, c(truth, one_of(filter_set)))))
