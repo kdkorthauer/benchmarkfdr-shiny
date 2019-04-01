@@ -305,7 +305,7 @@ server <- function(input, output) {
     })
     
     sbL <- reactive({
-        readRDS(file.path(inFile()))[1:5] # test smaller example (5 reps)
+        readRDS(file.path(inFile()))
     })
     
     sim_res <- reactive({
