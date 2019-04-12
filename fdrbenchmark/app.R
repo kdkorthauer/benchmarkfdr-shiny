@@ -228,15 +228,16 @@ ui <- navbarPage(theme = shinytheme("flatly"),
              
              mainPanel(
                  tabsetPanel(
-                     tabPanel("FDR vs TPR Plot",
-                              h5(textOutput("errMess1")),
-                              withSpinner(plotOutput("rocPlot"))),
                      tabPanel("FDR Plot",
                               h5(textOutput("errMess2")),
                               withSpinner(plotOutput("fdrPlot"))),
                      tabPanel("TPR Plot",
                               h5(textOutput("errMess3")),
                               withSpinner(plotOutput("tprPlot"))),
+                     tabPanel("FDR vs TPR Plot",
+                              h5(textOutput("errMess1")),
+                              withSpinner(plotOutput("rocPlot")),
+                              textOutput("legend")),
                      tabPanel("Rejections Plot",
                               withSpinner(plotOutput("rejPlotSim"))),
                      tabPanel("UpSet Plot",
@@ -405,6 +406,18 @@ server <- function(input, output) {
         if(sum(colSums(hits_tabs) > 0, na.rm = TRUE) <= 1){
           paste0("Not enough methods with rejections to compute overlaps")
         }
+    })
+    
+    output$legend <- renderText({
+    paste0("FDR versus TPR in simulations. ", 
+           "Following the style of the R/Bioconductor iCOBRA package ",
+           "the average FDR is plotted on the x-axis against the average ",
+           "TPR on the y-axis. Three points are included for ",
+           "each line (method) at the following nominal alpha values: ",
+           "0.01, 0.05, and 0.10. A solid point indicates FDR was controlled ",
+           "at the nominal level (on average), whereas an open point ",
+           "indicates that it was not. Averages are taken over all 100 ",
+           "simulation replications.")
     })
 }
 
