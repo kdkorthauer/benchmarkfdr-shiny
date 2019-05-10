@@ -11,27 +11,40 @@ library(shiny)
 library(shinythemes)
 library(shinycssloaders)
 library(SummarizedBenchmark) # requires version 0.99.2 from fdrbenchmark branch on github
-library(bechmarkfdrData2019)
+library(benchmarkfdrData2019)
+library(dplyr)
 ggplot2::theme_set(theme_bw())
 
 # check for necessary SummarizedBenchmark package version
 if (!packageVersion("SummarizedBenchmark")=="0.99.2")
   stop("This app requires version 0.99.2 of the SummarizedBenchmark ",
        "package from GitHub. \nInstall with ",
-       "'devtools::install_github('areyesq89/SummarizedBenchmark', ref='fdrbenchmark')'")
+       "BiocManager::install('areyesq89/SummarizedBenchmark', ref = 'fdrbenchmark')")
 
 source("../src/plotters.R")
 
-# will change the following line once ExperimentHub data package is available
+# load ExperimentHub 
+hub <- ExperimentHub()
+bfdrData <- query(hub, "benchmarkfdrData2019")
+
 ## get list of data objects
-datasets <- list.files(file.path("../results"), recursive = TRUE, full.names = TRUE)
+datasets <- bfdrData$rdatapath
+datasets <- gsub("benchmarkfdrData2019/v1.0.0/", "", datasets)
+datasets <- datasets[!grepl("Simulations", datasets)]
+datasets <- gsub("scRNA-seq", "scRNAseq", datasets)
+datasets <- gsub("RNA-seq", "RNAseq", datasets)
+datasets <- gsub("ChIP-seq", "ChIPseq", datasets)
+datasets <- gsub("GSA", "GSEA", datasets)
+datasets <- gsub("YeastInSilico", "RNAseq", datasets)
+datasets <- gsub("PolyesterInSilico", "RNAseq", datasets)
+datasets <- gsub("Microbiome", "microbiome", datasets)
 
 # parse object names to extract information
 sims <- datasets[grepl("yeast|poly", datasets)]
 datasets <- datasets[!grepl("yeast|poly|promoters", datasets)]
-casestudy <- dirname(gsub("../results/", "", datasets))
+casestudy <- dirname(datasets)
 
-names(datasets) <- basename(datasets) #gsub(".rds", "", basename(datasets))
+names(datasets) <- gsub(".rds", "", basename(datasets))
 
 datasets <- as.list(datasets)
 
