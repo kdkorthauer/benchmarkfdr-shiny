@@ -11,7 +11,14 @@ library(shiny)
 library(shinythemes)
 library(shinycssloaders)
 library(SummarizedBenchmark) # requires version 0.99.2 from fdrbenchmark branch on github
+library(bechmarkfdrData2019)
 ggplot2::theme_set(theme_bw())
+
+# check for necessary SummarizedBenchmark package version
+if (!packageVersion("SummarizedBenchmark")=="0.99.2")
+  stop("This app requires version 0.99.2 of the SummarizedBenchmark ",
+       "package from GitHub. \nInstall with ",
+       "'devtools::install_github('areyesq89/SummarizedBenchmark', ref='fdrbenchmark')'")
 
 source("../src/plotters.R")
 
