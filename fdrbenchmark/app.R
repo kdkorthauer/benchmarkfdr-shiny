@@ -31,13 +31,6 @@ bfdrData <- query(hub, "benchmarkfdrData2019")
 datasets <- bfdrData$rdatapath
 #datasets <- gsub("benchmarkfdrData2019/v1.0.0/", "", datasets)
 datasets <- datasets[!grepl("Simulations", datasets)]
-datasets <- gsub("scRNA-seq", "scRNAseq", datasets)
-datasets <- gsub("RNA-seq", "RNAseq", datasets)
-datasets <- gsub("ChIP-seq", "ChIPseq", datasets)
-datasets <- gsub("GSA", "GSEA", datasets)
-datasets <- gsub("YeastInSilico", "RNAseq", datasets)
-datasets <- gsub("PolyesterInSilico", "RNAseq", datasets)
-datasets <- gsub("Microbiome", "microbiome", datasets)
 
 # parse object names to extract information
 sims <- datasets[grepl("yeast|poly", datasets)]
@@ -58,23 +51,23 @@ names(gwas) <- ifelse(grepl("maf", gwas), "minor allele frequency",
                             ifelse(grepl("samplesize", gwas), "sample size",
                                    "uninformative"))
 
-# Chipseq
-chipseq <- datasets[casestudy == "ChIPseq"]
+# ChIP-seq
+chipseq <- datasets[casestudy == "ChIP-seq"]
 ds <- gsub("-csaw-[[:graph:]]+", "", chipseq)
 cov <- ifelse(grepl("cov", chipseq), "mean coverage",
               ifelse(grepl("uninf", chipseq), "uninformative", "region width"))
 names(chipseq) <- paste0(basename(ds), " & ", cov)
 
 
-# GSEA
-gsea <- datasets[casestudy == "GSEA"]
+# GSA
+gsea <- datasets[casestudy == "GSA"]
 ds <- ifelse(grepl("human", gsea), "human", "mouse")
 cov <- ifelse(grepl("uninf", gsea), "random", "gene set size")
 names(gsea) <- paste0(basename(ds), " & ", cov)
 
 
-# microbiome
-micro <- datasets[casestudy == "microbiome"]
+# Microbiome
+micro <- datasets[casestudy == "Microbiome"]
 ds <- unlist(lapply(micro, function(x) basename(strsplit(x, "-")[[1]][1])))
 lev <- ifelse(grepl("otu", micro), "OTU", "genus")
 cov <- ifelse(grepl("mean|abun", micro), "mean abundance",
@@ -82,14 +75,14 @@ cov <- ifelse(grepl("mean|abun", micro), "mean abundance",
                      ifelse(grepl("log", micro), "log ubiquity", "ubiquity")))
 names(micro) <- paste0(basename(ds), " (", lev, ") & ", cov)
 
-# RNAseq
-rna <- datasets[casestudy == "RNAseq"]
+# RNA-seq
+rna <- datasets[casestudy == "RNA-seq"]
 ds <- ifelse(grepl("brain", rna), "brain", "miRNA 200c")
 cov <- ifelse(grepl("uninf", rna), "random", "mean expression")
 names(rna) <- paste0(basename(ds), " & ", cov)
 
-# scRNAseq
-sc <- datasets[casestudy == "scRNAseq"]
+# scRNA-seq
+sc <- datasets[casestudy == "scRNA-seq"]
 ds <- ifelse(grepl("human", sc), "human", "mouse")
 cov <- ifelse(grepl("det", sc), "detection rate",
               ifelse(grepl("uninf", sc), "random", 
@@ -123,7 +116,6 @@ yeasttab <- data.frame(file = sims[grepl("yeast", sims)]) %>%
 ui <- navbarPage(theme = shinytheme("flatly"),
     # Application title
     title = "FDR benchmark results explorer",
-    #tabsetPanel( #id = "tabs",
      tabPanel("Case Studies", #value = "Case Studies",
     # Sidebar with selector for datasets/methods
     sidebarLayout(
@@ -139,48 +131,48 @@ ui <- navbarPage(theme = shinytheme("flatly"),
                             selected = gwas[1])
             ),
             conditionalPanel(
-                condition = "input.casestudy == 'ChIPseq'",
+                condition = "input.casestudy == 'ChIP-seq'",
                 selectInput("ChIPseq", "Dataset & Covariate:",
                             choices = chipseq,
                             selected = chipseq[1])
             ),
             conditionalPanel(
-                condition = "input.casestudy == 'GSEA'",
+                condition = "input.casestudy == 'GSA'",
                 selectInput("GSEA", "Dataset & Covariate:",
                             choices = gsea,
                             selected = gsea[1])
             ),
             conditionalPanel(
-                condition = "input.casestudy == 'microbiome'",
+                condition = "input.casestudy == 'Microbiome'",
                 selectInput("microbiome", "Dataset (Level) & Covariate:",
                             choices = micro,
                             selected = micro[1])
             ),
             conditionalPanel(
-                condition = "input.casestudy == 'RNAseq'",
+                condition = "input.casestudy == 'RNA-seq'",
                 selectInput("RNAseq", "Dataset & Covariate:",
                             choices = rna,
                             selected = rna[1])
             ),
             conditionalPanel(
-                condition = "input.casestudy == 'scRNAseq'",
+                condition = "input.casestudy == 'scRNA-seq'",
                 selectInput("scRNAseq", "Dataset & Covariate (Method):",
                             choices = sc,
                             selected = sc[1])
             ),
             conditionalPanel(
               condition = "input.casestudy == 'GWAS' |
-                           input.casestudy == 'RNAseq'",
+                           input.casestudy == 'RNA-seq'",
               checkboxGroupInput("methods1",
                                "Methods",
                                choices = possmethods,
                                selected = possmethods[possmethods != "bonf"])
             ),
             conditionalPanel(
-              condition = "input.casestudy == 'microbiome' |
-                           input.casestudy == 'GSEA' |
-                           input.casestudy == 'ChIPseq' |
-                           input.casestudy == 'scRNAseq'",
+              condition = "input.casestudy == 'Microbiome' |
+                           input.casestudy == 'GSA' |
+                           input.casestudy == 'ChIP-seq' |
+                           input.casestudy == 'scRNA-seq'",
               checkboxGroupInput("methods2",
                                "Methods",
                                choices = possmethods[!(possmethods %in% c("fdrreg-e", "fdrreg-t", "ashq"))],
@@ -267,7 +259,6 @@ ui <- navbarPage(theme = shinytheme("flatly"),
              
              )
     )
-#)
 )
 
 # Define server logic required to draw each type of plot
@@ -286,25 +277,26 @@ server <- function(input, output) {
     observe(react$scRNAseq <- input$scRNAseq)
     observe(react$casestudy <- input$casestudy)
     observe(react$simtype <- input$simtype)
-    
+  
     data <- reactive({
+      print(react$RNAseq)
        if (react$casestudy == "GWAS"){
           return(react$GWAS)
-       }else if(react$casestudy == "GSEA"){
+       }else if(react$casestudy == "GSA"){
           return(react$GSEA)
-       }else if(react$casestudy == "ChIPseq"){
+       }else if(react$casestudy == "ChIP-seq"){
            return(react$ChIPseq)
-       }else if(react$casestudy == "microbiome"){
+       }else if(react$casestudy == "Microbiome"){
            return(react$microbiome)
-       }else if(react$casestudy == "RNAseq"){
+       }else if(react$casestudy == "RNA-seq"){
            return(react$RNAseq)
-       }else if(react$casestudy == "scRNAseq"){
+       }else if(react$casestudy == "scRNA-seq"){
            return(react$scRNAseq)
        }
     })
     
     methods <- reactive({
-       if (react$casestudy %in% c("GWAS", "RNAseq")){
+       if (react$casestudy %in% c("GWAS", "RNA-seq")){
           return(react$methods1)
        }else{
           return(react$methods2)
@@ -341,7 +333,9 @@ server <- function(input, output) {
     )
     
     sb <- reactive({
+        print(data())
         ehid <- bfdrData$ah_id[bfdrData$rdatapath == file.path(data())]
+        print(ehid)
         obj <- bfdrData[[ehid]]
         obj <- obj[,grepl(paste0(methods(), collapse="|"), colnames(obj))]
         assayNames(obj) <- "qvalue"
