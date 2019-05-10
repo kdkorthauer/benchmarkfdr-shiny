@@ -13,11 +13,13 @@
 #' 
 #' 
 #' @author Alejandro Reyes
-rejections_scatter <- function( sb, as_fraction=FALSE, supplementary=TRUE,
+rejections_scatter <- function( sb, as_fraction=FALSE, 
                                 palette = candycols, alpha = 0.05){
   stopifnot( is(sb, "SummarizedBenchmark" ) )
   alphas <- unique( as.numeric( as.character( colData( sb )$param.alpha ) ) )
   alphas <- alphas[!is.na(alphas)]
+  if(length(alphas)==0)
+    alphas <- seq(0.01,0.10, by =0.01)
   if( as_fraction ){
     deno <- nrow(sb)
     yl <- "Fraction of hypotheses rejected"
@@ -33,16 +35,12 @@ rejections_scatter <- function( sb, as_fraction=FALSE, supplementary=TRUE,
   plotDF <- estimatePerformanceMetrics( sb, alpha=alphas, tidy=TRUE ) %>%
     dplyr:::filter( !(grepl("ihw", blabel) & param.alpha != alpha ) ) %>%
     dplyr:::mutate( blabel=gsub("(ihw)-a\\d+", "\\1", blabel ) ) %>%
-    #dplyr:::select( blabel, key, value, assay, performanceMetric, alpha ) %>%
-    dplyr:::filter( blabel!="unadjusted", performanceMetric == "rejections" ) 
-  if( !supplementary ){
-    plotDF <- plotDF %>%
-      dplyr:::mutate( param.smooth.df=gsub("L", "", param.smooth.df ) ) %>%
-      dplyr:::filter( !( grepl("bl-df", blabel) & 
+    dplyr:::filter( blabel!="unadjusted", performanceMetric == "rejections" ) %>%
+    dplyr:::mutate( param.smooth.df=gsub("L", "", param.smooth.df ) ) %>%
+    dplyr:::filter( !( grepl("bl-df", blabel) & 
                            as.numeric(as.character(param.smooth.df) != 3 ) ) ) %>%
-      dplyr:::mutate( Method=gsub("-df03", "", blabel))
-  }
-  
+    dplyr:::mutate( Method=gsub("-df03", "", blabel))
+
   # add color palette
   plotDF <- dplyr::left_join(plotDF, palette, by="Method") 
   
@@ -80,7 +78,9 @@ plotFDRMethodsOverlap <- function( object, supplementary=TRUE, alpha=0.1, ... ){
     #message("Not enough methods reject anything")
     return(NULL) 
   }
-  object <- object[,!( grepl("^ihw", as.character( colData( object )$blabel ) ) & colData( object )$param.alpha != alpha )]
+  if (grepl("ihw", colnames(object)))
+    object <- object[,!( grepl("^ihw", as.character( colData( object )$blabel ) ) & colData( object )$param.alpha != alpha )]
+  
   colData(object)$blabel <- gsub("(ihw)-.*", "\\1", colData( object )$blabel)
   qvals <- assays( object )[["qvalue"]]
   object <- object[,!apply( is.na( assays( object )[["qvalue"]] ), 2, all )]
