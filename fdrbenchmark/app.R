@@ -266,8 +266,6 @@ server <- function(input, output) {
 
     # prepare selected sb obj for plotting
     react <- reactiveValues()  
-    observe(react$methods1 <- input$methods1)
-    observe(react$methods2 <- input$methods2)
     observe(react$methodsS <- input$methodsS)
     observe(react$GWAS <- input$GWAS)
     observe(react$ChIPseq <- input$ChIPseq)
@@ -279,7 +277,6 @@ server <- function(input, output) {
     observe(react$simtype <- input$simtype)
   
     data <- reactive({
-      print(react$RNAseq)
        if (react$casestudy == "GWAS"){
           return(react$GWAS)
        }else if(react$casestudy == "GSA"){
@@ -295,14 +292,18 @@ server <- function(input, output) {
        }
     })
     
+    
+    methods1 <- reactive(input$methods1) %>% debounce(2000)
+    methods2 <- reactive(input$methods2) %>% debounce(2000)
+    
     methods <- reactive({
        if (react$casestudy %in% c("GWAS", "RNA-seq")){
-          return(react$methods1)
+          return(methods1())
        }else{
-          return(react$methods2)
+          return(methods2())
        }
     })
-  
+    
     type <- reactive(input$type)
     covar <- reactive(input$covariate)
     size <- reactive(input$size)
@@ -333,9 +334,7 @@ server <- function(input, output) {
     )
     
     sb <- reactive({
-        print(data())
         ehid <- bfdrData$ah_id[bfdrData$rdatapath == file.path(data())]
-        print(ehid)
         obj <- bfdrData[[ehid]]
         obj <- obj[,grepl(paste0(methods(), collapse="|"), colnames(obj))]
         assayNames(obj) <- "qvalue"
@@ -345,7 +344,7 @@ server <- function(input, output) {
     
     sbL <- reactive({
         ehid <- bfdrData$ah_id[bfdrData$rdatapath == file.path(inFile())]
-        bfdrData[[ehid]][1:5]
+        bfdrData[[ehid]]
     })
     
     sim_res <- reactive({
@@ -354,9 +353,8 @@ server <- function(input, output) {
     
     # case study plotting
     output$rejPlot <- renderPlot({
-          rejections_scatter(sb(), palette = candycols, 
-                             supplementary = FALSE)
-    })
+          rejections_scatter(sb(), palette = candycols)
+    }) 
     
     output$upsetPlot <- renderPlot({
           plotFDRMethodsOverlap(sb(), 
@@ -365,7 +363,6 @@ server <- function(input, output) {
                               supplementary=FALSE)
     })
     
-
     # simulation plotting
     output$fdrPlot <- renderPlot({
             plotsim_average(sim_res(), filter_set = react$methodsS,
@@ -384,7 +381,7 @@ server <- function(input, output) {
     
     output$upsetPlotSim <- renderPlot({
             aggupset(sbL(), alpha = 0.05, supplementary = FALSE,
-                     filter_set = react$methodsS,
+                     filter_set = react$methodsS_d,
                      return_list = FALSE) 
     })
     
