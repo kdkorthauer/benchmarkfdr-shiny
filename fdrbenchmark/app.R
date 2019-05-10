@@ -29,7 +29,7 @@ bfdrData <- query(hub, "benchmarkfdrData2019")
 
 ## get list of data objects
 datasets <- bfdrData$rdatapath
-datasets <- gsub("benchmarkfdrData2019/v1.0.0/", "", datasets)
+#datasets <- gsub("benchmarkfdrData2019/v1.0.0/", "", datasets)
 datasets <- datasets[!grepl("Simulations", datasets)]
 datasets <- gsub("scRNA-seq", "scRNAseq", datasets)
 datasets <- gsub("RNA-seq", "RNAseq", datasets)
@@ -42,7 +42,7 @@ datasets <- gsub("Microbiome", "microbiome", datasets)
 # parse object names to extract information
 sims <- datasets[grepl("yeast|poly", datasets)]
 datasets <- datasets[!grepl("yeast|poly|promoters", datasets)]
-casestudy <- dirname(datasets)
+casestudy <- gsub("benchmarkfdrData2019/v1.0.0/", "", dirname(datasets))
 
 names(datasets) <- gsub(".rds", "", basename(datasets))
 
@@ -341,7 +341,8 @@ server <- function(input, output) {
     )
     
     sb <- reactive({
-        obj <- readRDS(file.path(data()))
+        ehid <- bfdrData$ah_id[bfdrData$rdatapath == file.path(data())]
+        obj <- bfdrData[[ehid]]
         obj <- obj[,grepl(paste0(methods(), collapse="|"), colnames(obj))]
         assayNames(obj) <- "qvalue"
         obj <- addDefaultMetrics(obj)
@@ -349,7 +350,8 @@ server <- function(input, output) {
     })
     
     sbL <- reactive({
-        readRDS(file.path(inFile()))
+        ehid <- bfdrData$ah_id[bfdrData$rdatapath == file.path(inFile())]
+        bfdrData[[ehid]][1:5]
     })
     
     sim_res <- reactive({
