@@ -21,7 +21,7 @@ if (!packageVersion("SummarizedBenchmark")=="0.99.2")
        "package from GitHub. \nInstall with ",
        "BiocManager::install('areyesq89/SummarizedBenchmark', ref = 'fdrbenchmark')")
 
-source("../src/plotters.R")
+source("src/plotters.R")
 
 # load ExperimentHub 
 hub <- ExperimentHub()
