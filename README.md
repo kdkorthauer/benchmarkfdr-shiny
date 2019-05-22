@@ -47,10 +47,10 @@ BiocManager::install(shiny)
 BiocManager::install(shinythemes)
 BiocManager::install(shinycssloaders)
 devtools::install_github("areyesq89/SummarizedBenchmark", ref = "fdrbenchmark") 
-devtools::install_github("stephaniehicks/benchmarkfdrData2019")  
+BiocManager::install("benchmarkfdrData2019")
 ```  
 
-Note that newer versions of the `SummarizedBenchmark` package are not compatible, so make sure to use the specific tagged version above. The `benchmarkfdrData2019` package contains the results objects used by the App.
+Note that newer versions of the `SummarizedBenchmark` package are not compatible, so make sure to use the specific tagged version above. The `benchmarkfdrData2019` Bioconductor package contains the results objects used by the App.
 
 #### 2. Next launch the app:  
 
