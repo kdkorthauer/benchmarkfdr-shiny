@@ -1,6 +1,6 @@
 # What is the benchmarkfdr-shiny Application?
 
-This is a Shiny App for exploring results from ["A practical guide to methods controlling false discoveries in computational biology" by Korthauer, Kimes et al. (2018)](https://www.biorxiv.org/content/10.1101/458786v1). In this paper, we generated results from a series of case studies of high-throughput biology, as well as extensive simulation using both resampling techniques and direct simulation of RNA-seq counts using Polyester. This tool enables interactive exploration of these results.
+This is a Shiny App for exploring results from ["A practical guide to methods controlling false discoveries in computational biology" by Korthauer, Kimes et al. (2019)](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1716-1). In this paper, we generated results from a series of case studies of high-throughput biology, as well as extensive simulation using both resampling techniques and direct simulation of RNA-seq counts using Polyester. This tool enables interactive exploration of these results.
 
 ## What kinds of things can I explore?
 
